@@ -1,0 +1,9 @@
+{
+  "packageManager": "npm",
+  "framework": "",
+  "database": "",
+  "styling": "",
+  "sourceRoot": "src",
+  "avoidUnrelatedRefactors": true,
+  "reuseExistingDependencies": true
+}

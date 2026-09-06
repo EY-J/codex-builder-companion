@@ -1,0 +1,192 @@
+{
+  "name": "codex-builder-companion",
+  "displayName": "Codex Builder Companion",
+  "description": "A project-aware Codex prompt companion with Local Advanced and optional AI Enhanced Prompt Intelligence, upgraded model selection, loading states, and refined sidebar UI.",
+  "version": "1.3.1",
+  "publisher": "localbuilder",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "codex",
+    "prompt",
+    "builder",
+    "productivity",
+    "context"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexBuilder.optimizePrompt",
+        "title": "Codex Builder: Optimize Prompt"
+      },
+      {
+        "command": "codexBuilder.matchScreenshot",
+        "title": "Codex Builder: Match Screenshot"
+      },
+      {
+        "command": "codexBuilder.fixIssue",
+        "title": "Codex Builder: Fix Current Issue"
+      },
+      {
+        "command": "codexBuilder.addFeature",
+        "title": "Codex Builder: Build Feature (One-Shot)"
+      },
+      {
+        "command": "codexBuilder.quickAdd",
+        "title": "Codex Builder: Add Quick Change"
+      },
+      {
+        "command": "codexBuilder.updateUI",
+        "title": "Codex Builder: Update UI"
+      },
+      {
+        "command": "codexBuilder.setDecisionAuthority",
+        "title": "Codex Builder: Set Decision Authority"
+      },
+      {
+        "command": "codexBuilder.setContextBudget",
+        "title": "Codex Builder: Set Context Budget"
+      },
+      {
+        "command": "codexBuilder.refreshProjectBrain",
+        "title": "Codex Builder: Refresh Project Brain"
+      },
+      {
+        "command": "codexBuilder.generateAgents",
+        "title": "Codex Builder: Generate AGENTS.md"
+      },
+      {
+        "command": "codexBuilder.openProjectProfile",
+        "title": "Codex Builder: Open Project Profile"
+      },
+      {
+        "command": "codexBuilder.openProjectDecisions",
+        "title": "Codex Builder: Open Project Decisions"
+      },
+      {
+        "command": "codexBuilder.clearHistory",
+        "title": "Codex Builder: Clear Prompt History"
+      },
+      {
+        "command": "codexBuilder.showVersion",
+        "title": "Codex Builder: Show Version"
+      },
+      {
+        "command": "codexBuilder.refreshCodexUsage",
+        "title": "Codex Builder: Refresh Codex Usage"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "codexBuilder.optimizePrompt",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b"
+      },
+      {
+        "command": "codexBuilder.matchScreenshot",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codexBuilder",
+          "title": "Codex Builder",
+          "icon": "resources/sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "codexBuilder": [
+        {
+          "type": "webview",
+          "id": "codexBuilder.sidebar",
+          "name": "Workspace"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codex Builder Companion",
+      "properties": {
+        "codexBuilder.decisionAuthority": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "conservative",
+            "balanced",
+            "autonomous"
+          ],
+          "enumDescriptions": [
+            "Codex decides routine low-risk details but asks before broad architecture, major dependencies, destructive changes, or material product/security choices.",
+            "Recommended. Codex decides normal engineering details and asks only for major product, destructive, or architectural decisions that cannot be safely inferred.",
+            "Minimizes follow-up questions. Codex chooses most implementation details and asks only when genuinely blocked or before irreversible/destructive product-level choices."
+          ],
+          "description": "How much implementation decision authority generated prompts give Codex."
+        },
+        "codexBuilder.contextBudget": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "economy",
+            "balanced",
+            "deep"
+          ],
+          "enumDescriptions": [
+            "Target up to 3 likely relevant files. Best for small changes and lower context.",
+            "Target up to 6 likely relevant files. Recommended for normal work.",
+            "Target up to 10 likely relevant files. Useful for broader debugging or architectural work."
+          ],
+          "description": "Controls how many likely relevant project paths Builder Companion includes in generated prompts."
+        },
+        "codexBuilder.promptIntelligenceMode": {
+          "type": "string",
+          "default": "local",
+          "enum": [
+            "local",
+            "ai"
+          ],
+          "enumDescriptions": [
+            "Local Advanced: requirement decomposition, constraints, implementation guidance, and acceptance criteria run entirely in the extension.",
+            "AI Enhanced: uses the ChatGPT-authenticated Codex app-server to interpret the request, with automatic fallback to Local Advanced."
+          ],
+          "description": "Choose how Builder Companion interprets rough task requests before assembling the final Codex prompt."
+        },
+        "codexBuilder.includeProjectBrain": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a concise locally detected project-stack summary in generated prompts."
+        },
+        "codexBuilder.includeRelevantFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a bounded list of likely relevant file paths in generated prompts."
+        },
+        "codexBuilder.promptIntelligenceModel": {
+          "type": "string",
+          "default": "auto",
+          "description": "Preferred model for AI Enhanced Prompt Intelligence. Auto uses the account default model."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check extension.js && node --check src/promptBuilder.js && node --check src/localIntelligence.js && node --check src/promptIntelligence.js && node --check src/projectBrain.js && node --check src/contextEngine.js && node --check src/sidebarProvider.js && node --check src/previewView.js && node --check src/codexUsage.js",
+    "package": "npx @vscode/vsce package --allow-missing-repository"
+  },
+  "files": [
+    "extension.js",
+    "src/**/*",
+    "resources/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "icon": "resources/icon.png"
+}
