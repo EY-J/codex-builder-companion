@@ -1,10 +1,29 @@
 # Repository Instructions
 
-- Primary language(s): JavaScript.
-- Use npm for package scripts and dependency changes.
-- Keep application code under `/src` unless the repository already establishes another location.
-- Source root: src.
+## Development Rules
+
+- Follow the existing project architecture and nearby code patterns.
 - Reuse existing dependencies and utilities before adding new packages.
-- Avoid unrelated refactors; keep changes targeted to the requested task.
-- Inspect nearby code and follow existing naming, component, data-access, and testing patterns.
-- Before finishing, run the relevant verification command(s): npm run test, npm run check.
+- Keep changes focused on the requested task.
+- Use npm for package scripts and dependency changes.
+- Before finishing, run the relevant existing checks: npm run test, npm run check.
+
+## Project Overview
+
+- Name: Codex Builder Companion
+- Type: VS Code extension
+- Purpose: A local VS Code companion for builders who use the Codex IDE/chat extension and want to spend less time writing technical prompts or answering routine implementation questions.
+
+## Technology Stack
+
+- Languages: JavaScript
+
+## Codebase Map
+
+- Application source: `src/`
+- Tests: `test/`
+
+## Project Documentation
+
+- `README.md`
+- `docs/superpowers/plans/2026-08-18-v1-builder-companion.md`
