@@ -52,8 +52,51 @@ test('buildAgentsMarkdown is concise and contains detected project rules', () =>
   assert.match(agents, /Next\.js/);
   assert.match(agents, /React/);
   assert.match(agents, /pnpm/);
-  assert.match(agents, /Avoid unrelated refactors/i);
+  assert.match(agents, /Keep changes focused on the requested task/i);
+  assert.match(agents, /## Development Rules\n/);
+  assert.match(agents, /## Technology Stack\n/);
   assert.ok(agents.length < 1800, `AGENTS.md too verbose: ${agents.length}`);
+});
+
+test('AGENTS.md describes a detected desktop project and explicit constraints', () => {
+  const profile = analyzeProject({
+    packageJson: {
+      name: 'imemory',
+      displayName: 'IMemory',
+      description: 'A workspace for conversations.',
+      scripts: { build: 'tauri build', test: 'vitest run' },
+      dependencies: { '@tauri-apps/api': '^2', react: '^19', 'better-sqlite3': '^11' },
+      devDependencies: { typescript: '^5', vitest: '^3' }
+    },
+    readmeText: '# IMemory\n\nA local-first AI workspace for persistent conversations and project memory.\n',
+    fileNames: ['src/App.tsx', 'src-tauri/src/main.rs', 'docs/architecture.md', 'docs/reliability-readiness-v1.md'],
+    rootEntries: ['src', 'src-tauri', 'README.md', 'package.json']
+  });
+  const agents = buildAgentsMarkdown(profile, {
+    purpose: 'Persistent conversations and continuity across authorized AI accounts.',
+    architecturalConstraints: [
+      'Do not reset or delete SQLite data.',
+      'Keep project memory isolated between projects.'
+    ],
+    storageBoundary: 'local-only'
+  });
+
+  assert.match(agents, /## Project Overview\n\n- Name: IMemory\n- Type: Desktop application\n- Purpose: Persistent conversations/);
+  assert.match(agents, /Frameworks: Tauri 2, React/);
+  assert.match(agents, /Languages: TypeScript, JavaScript, Rust/);
+  assert.match(agents, /Data: SQLite/);
+  assert.match(agents, /Native backend: `src-tauri\/src\/`/);
+  assert.match(agents, /npm run build/);
+  assert.match(agents, /## Architectural Constraints\n/);
+  assert.match(agents, /Do not reset or delete SQLite data/);
+  assert.match(agents, /## Project Documentation\n\n- `README\.md`\n- `docs\/architecture\.md`\n- `docs\/reliability-readiness-v1\.md`/);
+});
+
+test('AGENTS.md omits unknown overview facts and nonexistent checks', () => {
+  const profile = analyzeProject({ packageJson: { name: 'small-library' }, rootEntries: ['package.json'] });
+  const agents = buildAgentsMarkdown(profile, {});
+  assert.match(agents, /- Name: small-library/);
+  assert.doesNotMatch(agents, /- Type:|- Purpose:|## Project Documentation|npm run build/);
 });
 
 test('buildProjectContextSummary compresses project information for prompts', () => {

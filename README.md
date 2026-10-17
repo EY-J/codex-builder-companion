@@ -81,7 +81,9 @@ The automatic scanner reads project metadata/file paths and the active editor fo
 
 ## AGENTS.md
 
-`Codex Builder: Generate AGENTS.md` creates a deliberately concise root `AGENTS.md`. If one already exists, Builder Companion will not silently overwrite it; you can preview or explicitly replace it.
+`Codex Builder: Generate AGENTS.md` creates a root `AGENTS.md` with development rules, project overview, technology stack, codebase map, architectural constraints, and project documentation. It uses the package manifest, the README introduction, detected file paths, and `.codex-builder/decisions.json`. Sections without reliable information are omitted. Existing verification scripts are listed; missing scripts are not invented.
+
+Edit `purpose`, `projectType`, or `architecturalConstraints` in `.codex-builder/decisions.json` when the detected metadata does not fully explain the project. `architecturalConstraints` is an array of repository-wide rules, such as data preservation or project isolation. If `AGENTS.md` already exists, Builder Companion offers a preview or explicit replacement and never overwrites it silently.
 
 ## Token estimates
 

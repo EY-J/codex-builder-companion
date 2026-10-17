@@ -48,11 +48,26 @@ function verificationCommands(packageJson = {}, packageManager = 'npm') {
   return picked.slice(0, 4).map((script) => scriptCommand(packageManager, script));
 }
 
-function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [] } = {}) {
+function readmePurpose(readmeText = '') {
+  const paragraphs = String(readmeText).slice(0, 12000).split(/\r?\n\s*\r?\n/);
+  for (const paragraph of paragraphs) {
+    const text = paragraph.split(/\r?\n/)
+      .filter((line) => !/^\s*(?:#|>|```|~~~|\[!|!\[|[-*] |\d+\. )/.test(line))
+      .join(' ').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim();
+    if (text.length >= 30 && !/^(?:installation|getting started|usage|features)\b/i.test(text)) return text.slice(0, 240);
+  }
+  return '';
+}
+
+function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [], readmeText = '', workspaceName = '' } = {}) {
   const deps = depsOf(packageJson);
   const normalizedFiles = fileNames.map((file) => String(file).replace(/\\/g, '/'));
   const packageManager = detectPackageManager(rootEntries);
   const frameworks = [];
+  if (hasDep(deps, '@tauri-apps/api') || rootEntries.includes('src-tauri')) {
+    const version = String(deps['@tauri-apps/api'] || '');
+    frameworks.push(/^[^\d]*2(?:\D|$)/.test(version) ? 'Tauri 2' : 'Tauri');
+  }
   if (hasDep(deps, 'electron')) frameworks.push('Electron');
   if (hasDep(deps, 'next')) frameworks.push('Next.js');
   if (hasDep(deps, 'react', 'react-dom')) frameworks.push('React');
@@ -92,6 +107,22 @@ function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [] } =
 
   const sourceRoot = rootEntries.includes('src') || normalizedFiles.some((f) => f.startsWith('src/')) ? 'src' : '';
 
+  let projectType = '';
+  if (packageJson.engines?.vscode) projectType = 'VS Code extension';
+  else if (frameworks.some((framework) => framework.startsWith('Tauri'))) projectType = 'Desktop application';
+  else if (frameworks.includes('Electron')) projectType = 'Desktop application';
+  else if (frameworks.some((framework) => ['Next.js', 'React', 'Vue', 'Angular', 'Svelte', 'Astro'].includes(framework))) projectType = 'Web application';
+
+  const documentation = uniq(normalizedFiles
+    .filter((file) => /^(?:README\.md|CONTRIBUTING\.md|docs\/[\w./-]+\.md)$/i.test(file))
+    .filter((file) => !file.split('/').some((part) => part.startsWith('.'))))
+    .sort((a, b) => {
+      const rank = (file) => /(^|\/)README\.md$/i.test(file) ? 0 : /architecture|design|overview/i.test(file) ? 1 : /reliability|security/i.test(file) ? 2 : 3;
+      return rank(a) - rank(b) || a.localeCompare(b);
+    })
+    .slice(0, 6);
+  if (rootEntries.includes('README.md') && !documentation.includes('README.md')) documentation.unshift('README.md');
+
   const architecture = {};
   const commonDirs = [
     ['app', ['src/app/', 'app/']],
@@ -99,6 +130,8 @@ function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [] } =
     ['features', ['src/features/', 'features/']],
     ['main', ['src/main/']],
     ['renderer', ['src/renderer/']],
+    ['native backend', ['src-tauri/src/']],
+    ['server', ['src/server/', 'server/']],
     ['database', ['src/database/', 'src/db/', 'src/main/database/', 'src/main/db/']],
     ['services', ['src/services/', 'services/']],
     ['tests', ['test/', 'tests/', '__tests__/']]
@@ -110,7 +143,10 @@ function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [] } =
 
   return {
     schemaVersion: 1,
-    packageName: packageJson.name || '',
+    packageName: packageJson.name || workspaceName,
+    displayName: packageJson.displayName || '',
+    projectType,
+    purpose: readmePurpose(readmeText) || packageJson.description || '',
     packageManager,
     frameworks: uniq(frameworks),
     languages: uniq(languages),
@@ -119,6 +155,7 @@ function analyzeProject({ packageJson = {}, fileNames = [], rootEntries = [] } =
     testing: uniq(testing),
     sourceRoot,
     architecture,
+    documentation: documentation.slice(0, 6),
     verificationCommands: verificationCommands(packageJson, packageManager)
   };
 }
@@ -131,6 +168,9 @@ function defaultDecisions(profile = {}) {
     database,
     styling: (profile.styling || []).join(' + '),
     sourceRoot: profile.sourceRoot || '',
+    projectType: '',
+    purpose: '',
+    architecturalConstraints: [],
     avoidUnrelatedRefactors: true,
     reuseExistingDependencies: true
   };
@@ -139,21 +179,6 @@ function defaultDecisions(profile = {}) {
   }
   return decisions;
 }
-
-function decisionLines(decisions = {}) {
-  const allowed = [
-    ['framework', 'Framework'],
-    ['database', 'Database'],
-    ['styling', 'Styling'],
-    ['sourceRoot', 'Source root'],
-    ['storageBoundary', 'Storage'],
-    ['architecture', 'Architecture']
-  ];
-  return allowed
-    .filter(([key]) => decisions[key])
-    .map(([key, label]) => `${label}: ${decisions[key]}`);
-}
-
 
 function buildProjectDisplayRows(profile = {}, decisions = {}) {
   const rows = [];
@@ -183,19 +208,56 @@ function buildProjectContextSummary(profile = {}, decisions = {}) {
 }
 
 function buildAgentsMarkdown(profile = {}, decisions = {}) {
+  const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const section = (heading, bullets) => {
+    if (bullets.length) lines.push(`## ${heading}`, '', ...bullets.map((bullet) => `- ${bullet}`), '');
+  };
   const lines = ['# Repository Instructions', ''];
-  const stack = (profile.frameworks || []).join(' + ');
-  if (stack) lines.push(`- Use the existing ${stack} architecture.`);
-  if ((profile.languages || []).length) lines.push(`- Primary language(s): ${profile.languages.join(', ')}.`);
-  if (profile.packageManager) lines.push(`- Use ${profile.packageManager} for package scripts and dependency changes.`);
-  if (profile.sourceRoot) lines.push(`- Keep application code under \`/${profile.sourceRoot}\` unless the repository already establishes another location.`);
-  if ((profile.databases || []).length) lines.push(`- Reuse the existing data layer (${profile.databases.join(', ')}); do not introduce a parallel database stack.`);
-  if ((profile.styling || []).length) lines.push(`- Follow the existing styling system (${profile.styling.join(', ')}).`);
-  for (const text of decisionLines(decisions)) lines.push(`- ${text}.`);
-  if (decisions.reuseExistingDependencies !== false) lines.push('- Reuse existing dependencies and utilities before adding new packages.');
-  if (decisions.avoidUnrelatedRefactors !== false) lines.push('- Avoid unrelated refactors; keep changes targeted to the requested task.');
-  lines.push('- Inspect nearby code and follow existing naming, component, data-access, and testing patterns.');
-  if ((profile.verificationCommands || []).length) lines.push(`- Before finishing, run the relevant verification command(s): ${profile.verificationCommands.join(', ')}.`);
+  const rules = ['Follow the existing project architecture and nearby code patterns.'];
+  if (decisions.reuseExistingDependencies !== false) rules.push('Reuse existing dependencies and utilities before adding new packages.');
+  if (decisions.avoidUnrelatedRefactors !== false) rules.push('Keep changes focused on the requested task.');
+  if (profile.packageManager) rules.push(`Use ${clean(profile.packageManager)} for package scripts and dependency changes.`);
+  if ((profile.verificationCommands || []).length) rules.push(`Before finishing, run the relevant existing checks: ${profile.verificationCommands.map(clean).join(', ')}.`);
+  section('Development Rules', rules);
+
+  const overview = [];
+  const name = clean(profile.displayName || profile.packageName);
+  const type = clean(decisions.projectType || profile.projectType);
+  const purpose = clean(decisions.purpose || profile.purpose);
+  if (name) overview.push(`Name: ${name}`);
+  if (type) overview.push(`Type: ${type}`);
+  if (purpose) overview.push(`Purpose: ${purpose}`);
+  section('Project Overview', overview);
+
+  const stack = [];
+  const frameworks = clean(decisions.framework || (profile.frameworks || []).join(', '));
+  const database = clean(decisions.database || (profile.databases || []).join(', '));
+  const styling = clean(decisions.styling || (profile.styling || []).join(', '));
+  if (frameworks) stack.push(`Frameworks: ${frameworks}`);
+  if ((profile.languages || []).length) stack.push(`Languages: ${profile.languages.map(clean).join(', ')}`);
+  if (database) stack.push(`Data: ${database}`);
+  if (styling) stack.push(`Styling: ${styling}`);
+  if ((profile.testing || []).length) stack.push(`Testing: ${profile.testing.map(clean).join(', ')}`);
+  section('Technology Stack', stack);
+
+  const codebase = [];
+  const sourceRoot = clean(decisions.sourceRoot || profile.sourceRoot);
+  if (sourceRoot) codebase.push(`Application source: \`${sourceRoot}/\``);
+  for (const [area, location] of Object.entries(profile.architecture || {})) {
+    if (location !== sourceRoot) codebase.push(`${area[0].toUpperCase()}${area.slice(1)}: \`${clean(location)}/\``);
+  }
+  section('Codebase Map', codebase);
+
+  const constraints = [];
+  if (database) constraints.push(`Use the existing ${database} data layer; preserve existing user data and migrations.`);
+  if (decisions.storageBoundary === 'local-only') constraints.push('Keep storage local unless the project explicitly requires a remote service.');
+  else if (decisions.storageBoundary) constraints.push(`Storage boundary: ${clean(decisions.storageBoundary)}.`);
+  if (decisions.architecture) constraints.push(clean(decisions.architecture));
+  const explicit = Array.isArray(decisions.architecturalConstraints) ? decisions.architecturalConstraints : [];
+  for (const constraint of explicit.map(clean).filter(Boolean)) if (!constraints.includes(constraint)) constraints.push(constraint);
+  section('Architectural Constraints', constraints);
+
+  section('Project Documentation', (profile.documentation || []).map((file) => `\`${clean(file)}\``));
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 

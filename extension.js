@@ -141,7 +141,19 @@ async function scanProject(folder, force = false) {
     rootEntries = [];
   }
   const packageJson = readJson(path.join(root, 'package.json'), {});
-  const profile = analyzeProject({ packageJson, fileNames: filePaths, rootEntries });
+  let readmeText = '';
+  try {
+    const handle = fs.openSync(path.join(root, 'README.md'), 'r');
+    try {
+      const buffer = Buffer.alloc(12000);
+      readmeText = buffer.toString('utf8', 0, fs.readSync(handle, buffer, 0, buffer.length, 0));
+    } finally {
+      fs.closeSync(handle);
+    }
+  } catch {
+    // A README is optional.
+  }
+  const profile = analyzeProject({ packageJson, fileNames: filePaths, rootEntries, readmeText, workspaceName: path.basename(root) });
   const value = { folder, root, filePaths, profile, packageJson };
   brainCache.set(cacheKey, { at: Date.now(), value });
   return value;
@@ -487,7 +499,7 @@ async function generateAgents() {
   const target = path.join(intelligence.root, 'AGENTS.md');
   if (fs.existsSync(target)) {
     const choice = await vscode.window.showWarningMessage(
-      'AGENTS.md already exists. Replace it with the concise Project Brain version?',
+      'AGENTS.md already exists. Replace it with the generated repository overview?',
       { modal: true },
       'Replace',
       'Preview Generated'
@@ -501,7 +513,7 @@ async function generateAgents() {
   fs.writeFileSync(target, content, 'utf8');
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target));
   await vscode.window.showTextDocument(doc, { preview: false });
-  vscode.window.showInformationMessage('Codex Builder: concise AGENTS.md generated. Review it before relying on it.');
+  vscode.window.showInformationMessage('Codex Builder: AGENTS.md generated. Review the project overview and constraints before relying on it.');
 }
 
 async function connectChatGPT() {
